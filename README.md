@@ -339,6 +339,18 @@ Restart Docker again:
 ```bash
 systemctl restart docker
 ```
+Then bring Harbor back up (restarting Docker stops all Harbor containers):
+
+```bash
+cd /opt/harbor
+docker compose up -d
+```
+
+Verify Harbor containers are running:
+
+```bash
+docker ps
+```
 
 ---
 
