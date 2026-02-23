@@ -497,7 +497,7 @@ Enter credentials when prompted:
 
 ---
 
-### Step 6 — Tag the Image for Harbor
+### Step 6 — Tag the Image for Harbor 
 
 Use the format: `<harbor-ip>/<project>/<image>:<tag>`
 
