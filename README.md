@@ -1,22 +1,103 @@
-# Harbor Private Registry — Air-Gapped Installation Guide (RHEL 9)
+# Harbor Private Registry — Air-Gapped Installation Guide (RHEL 10)
 
-This guide covers the full setup of a Harbor private container registry on an air-gapped RHEL 9 VM using Docker CE and self-signed TLS certificates.
+This guide covers the full setup of a Harbor private container registry on an air-gapped RHEL 10 VM using Docker CE and self-signed TLS certificates.
 
 ---
 
-## Prerequisites
+## 1. Environment Details
 
-- Harbor offline installer (downloaded on an internet-connected machine)
-- Docker CE RPM packages (downloaded from [https://download.docker.com/linux/rhel/](https://download.docker.com/linux/rhel/)):
+| Component        | Details                              |
+|------------------|--------------------------------------|
+| Hypervisor       | VMware Workstation                   |
+| OS               | RHEL 10                              |
+| Docker Version   | 29.x                                 |
+| Harbor Version   | v2.14.2 (Offline Installer)          |
+| Registry URL     | https://192.168.88.129               |
+| Network Type     | Air-Gapped (No Internet)             |
+
+---
+
+## 2. Resources & Official Download Links
+
+### RHEL ISO
+- Official Download: [https://access.redhat.com/downloads](https://access.redhat.com/downloads) *(Requires Red Hat account)*
+- Documentation: [https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/)
+
+### Docker Engine RPMs
+- Official Docker repository: [https://docs.docker.com/engine/install/rhel/](https://docs.docker.com/engine/install/rhel/)
+- Download RPM packages: [https://download.docker.com/linux/rhel/](https://download.docker.com/linux/rhel/)
+
+Packages required:
+- `docker-ce`
+- `docker-ce-cli`
+- `containerd.io`
+- `docker-compose-plugin`
+
+### Harbor Offline Installer
+- Official Harbor GitHub: [https://github.com/goharbor/harbor](https://github.com/goharbor/harbor)
+- Releases page: [https://github.com/goharbor/harbor/releases](https://github.com/goharbor/harbor/releases)
+- Downloaded file: `harbor-offline-installer-v2.14.2.tgz`
+- Official Harbor Docs: [https://goharbor.io/docs/](https://goharbor.io/docs/)
+
+### OpenSSL Documentation
+- [https://www.openssl.org/docs/](https://www.openssl.org/docs/)
+
+---
+
+## 3. Architecture Overview
+
+```
+Internet Machine
+├── Pull Docker images        (docker pull)
+├── Download RPMs             (Docker CE packages)
+└── Transfer files via SCP   ──────────────────────┐
+                                                    ▼
+                                          Harbor VM (Air-Gapped)
+                                          ├── Docker Engine
+                                          ├── Harbor Core
+                                          ├── Harbor Registry
+                                          ├── Harbor DB
+                                          ├── Harbor Redis
+                                          └── Harbor Nginx (HTTPS)
+```
+
+**Workflow:**
+
+```
+Internet → docker pull → docker save → scp → Harbor VM → docker load → docker push → Harbor Registry
+```
+
+---
+
+## 4. VM Creation (VMware Workstation)
+
+1. Create a new VM in VMware Workstation
+2. Attach the RHEL ISO
+3. Assign the following resources:
+   - **RAM:** 8 GB
+   - **CPUs:** 4
+   - **Disk:** 120 GB
+4. Set **Network Adapter** to: `Host-Only`
+5. Complete RHEL installation and boot into the OS
+
+---
+
+## 5. Prerequisites Checklist
+
+Before starting, ensure the following are ready on your **internet-connected machine**:
+
+- [ ] RHEL 10 ISO downloaded and VM created
+- [ ] Harbor offline installer: `harbor-offline-installer-v2.14.2.tgz`
+- [ ] Docker CE RPM packages downloaded:
   - `docker-ce`
   - `docker-ce-cli`
   - `containerd.io`
-  - `docker-buildx-plugin`
   - `docker-compose-plugin`
+- [ ] SCP access from host to VM confirmed
 
 ---
 
-## 1. VM Network Setup
+## 6. VM Network Setup
 
 After VM creation, get your IP address and configure a static IP.
 
@@ -30,7 +111,7 @@ Set static IP (replace `ens160` with your actual interface name):
 ```bash
 sudo nmcli connection modify ens160 \
   ipv4.method manual \
-  ipv4.addresses 192.168.88.10/24 \
+  ipv4.addresses 192.168.88.129/24 \
   ipv4.gateway "" \
   ipv4.dns ""
 ```
@@ -69,7 +150,7 @@ hostnamectl set-hostname harbor
 
 ---
 
-## 2. Install Docker CE (Offline)
+## 7. Install Docker CE (Offline)
 
 > ⚠️ RHEL 9 does not ship Docker by default. Harbor does not install Docker. You must install Docker CE manually.
 
@@ -110,7 +191,7 @@ systemctl status docker
 
 ---
 
-## 3. Generate TLS Certificates
+## 8. Generate TLS Certificates
 
 ### Create Certificate Directory
 
@@ -203,7 +284,7 @@ sudo update-ca-trust
 
 ---
 
-## 4. Install Harbor
+## 9. Install Harbor
 
 ### Transfer the Installer to the VM
 
@@ -222,7 +303,7 @@ cd harbor
 
 ---
 
-## 5. Configure Harbor
+## 10. Configure Harbor
 
 Edit `harbor.yml`:
 
@@ -233,7 +314,7 @@ vi harbor.yml
 Make the following changes:
 
 ```yaml
-hostname: 192.168.88.10
+hostname: 192.168.88.129
 
 # Comment out http:
 # http:
@@ -260,7 +341,7 @@ Expected output:
 
 ---
 
-## 6. Run Harbor Installation
+## 11. Run Harbor Installation
 
 ```bash
 cd /opt/harbor
@@ -276,15 +357,15 @@ docker ps
 
 ---
 
-## 7. Access Harbor UI
+## 12. Access Harbor UI
 
 Open your browser and navigate to:
 
 ```
-https://192.168.88.10
+https://192.168.88.129
 ```
 
-> ⚠️ Since you're using a self-signed certificate, the browser will show "Connection not private". Click **Advanced → Proceed to 192.168.88.10**.
+> ⚠️ Since you're using a self-signed certificate, the browser will show "Connection not private". Click **Advanced → Proceed to 192.168.88.129**.
 
 **Default credentials:**
 
@@ -295,7 +376,7 @@ https://192.168.88.10
 
 ---
 
-## 8. Create a Project
+## 13. Create a Project
 
 1. Log in to Harbor UI
 2. Go to **Projects → New Project**
@@ -304,7 +385,7 @@ https://192.168.88.10
 
 ---
 
-## 9. Configure Docker to Trust Harbor
+## 14. Configure Docker to Trust Harbor
 
 Since Harbor uses a self-signed certificate, configure Docker to allow it:
 
@@ -316,7 +397,7 @@ Add:
 
 ```json
 {
-  "insecure-registries": ["192.168.88.10"]
+  "insecure-registries": ["192.168.88.129"]
 }
 ```
 
@@ -329,9 +410,9 @@ systemctl restart docker
 ### Copy Certificate for Docker Trust
 
 ```bash
-rm -rf /etc/docker/certs.d/192.168.88.10
-mkdir -p /etc/docker/certs.d/192.168.88.10
-cp /data/cert/harbor.crt /etc/docker/certs.d/192.168.88.10/ca.crt
+rm -rf /etc/docker/certs.d/192.168.88.129
+mkdir -p /etc/docker/certs.d/192.168.88.129
+cp /data/cert/harbor.crt /etc/docker/certs.d/192.168.88.129/ca.crt
 ```
 
 Restart Docker again:
@@ -339,6 +420,7 @@ Restart Docker again:
 ```bash
 systemctl restart docker
 ```
+
 Then bring Harbor back up (restarting Docker stops all Harbor containers):
 
 ```bash
@@ -354,37 +436,8 @@ docker ps
 
 ---
 
-## 10. Login and Push an Image
+## 15. Pull, Transfer, and Push an Image to Harbor
 
-### Login to Harbor
-
-```bash
-docker login 192.168.88.10
-```
-
-Enter `admin` / `Harbor12345` when prompted.
-
-### Tag and Push an Image
-
-```bash
-# List local images
-docker images
-
-# Tag a local image for Harbor
-docker tag goharbor/registry-photon:v2.14.2 192.168.88.10/myproject/registry-test:v1
-
-# Push to Harbor
-docker push 192.168.88.10/myproject/registry-test:v1
-```
-
-### Verify in UI
-
-Navigate to: **Projects → myproject → Repositories**
-
-You should see `registry-test` listed.
-
----
-When image not available on your vm then take image on host then copy to vm and then push images to harbor registry
 Since the VM is air-gapped, you cannot pull images directly on it. The workflow is:
 
 **Host machine (internet) → Save as `.tar` → SCP to VM → Load → Tag → Push to Harbor**
@@ -408,7 +461,7 @@ docker save -o nginx-latest.tar nginx:latest
 ### Step 3 — Transfer the TAR to the VM
 
 ```bash
-scp nginx-latest.tar root@192.168.88.10:/home/sumit/
+scp nginx-latest.tar root@192.168.88.129:/home/sumit/
 ```
 
 ---
@@ -432,7 +485,7 @@ docker images
 ### Step 5 — Login to Harbor
 
 ```bash
-docker login 192.168.88.10
+docker login 192.168.88.129
 ```
 
 Enter credentials when prompted:
@@ -449,13 +502,13 @@ Enter credentials when prompted:
 Use the format: `<harbor-ip>/<project>/<image>:<tag>`
 
 ```bash
-docker tag nginx:latest 192.168.88.10/myproject/nginx:latest
+docker tag nginx:latest 192.168.88.129/myproject/nginx:latest
 ```
 
 ### Step 7 — Push the Image to Harbor
 
 ```bash
-docker push 192.168.88.10/myproject/nginx:latest
+docker push 192.168.88.129/myproject/nginx:latest
 ```
 
 ---
@@ -465,12 +518,28 @@ docker push 192.168.88.10/myproject/nginx:latest
 Open your browser and navigate to:
 
 ```
-https://192.168.88.10
+https://192.168.88.129
 ```
 
 Go to: **Projects → myproject → Repositories**
 
 You should see `nginx` listed with the `latest` tag.
+
+---
+
+> 💡 **Tip — Transferring Multiple Images at Once**
+>
+> You can save multiple images into a single TAR file:
+>
+> ```bash
+> docker save -o images-bundle.tar nginx:latest redis:7 postgres:15
+> ```
+>
+> Then load them all in one command on the VM:
+>
+> ```bash
+> docker load -i /home/sumit/images-bundle.tar
+> ```
 
 ---
 
@@ -484,17 +553,21 @@ This happens when Docker doesn't trust the Harbor certificate (e.g., after reins
 
 ```bash
 # Remove old cert directory
-rm -rf /etc/docker/certs.d/192.168.88.10
+rm -rf /etc/docker/certs.d/192.168.88.129
 
 # Recreate and copy new cert
-mkdir -p /etc/docker/certs.d/192.168.88.10
-cp /data/cert/harbor.crt /etc/docker/certs.d/192.168.88.10/ca.crt
+mkdir -p /etc/docker/certs.d/192.168.88.129
+cp /data/cert/harbor.crt /etc/docker/certs.d/192.168.88.129/ca.crt
 
 # Restart Docker
 systemctl restart docker
 
+# Bring Harbor back up
+cd /opt/harbor
+docker compose up -d
+
 # Try login again
-docker login 192.168.88.10
+docker login 192.168.88.129
 ```
 
 ---
