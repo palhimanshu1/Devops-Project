@@ -372,6 +372,95 @@ Navigate to: **Projects → myproject → Repositories**
 You should see `registry-test` listed.
 
 ---
+When image not available on your vm then take image on host then copy to vm and then push images to harbor registry
+Since the VM is air-gapped, you cannot pull images directly on it. The workflow is:
+
+**Host machine (internet) → Save as `.tar` → SCP to VM → Load → Tag → Push to Harbor**
+
+---
+
+### Step 1 — Pull the Image on Your Host Machine
+
+On your **internet-connected laptop/host**:
+
+```bash
+docker pull nginx:latest
+```
+
+### Step 2 — Save the Image as a TAR File
+
+```bash
+docker save -o nginx-latest.tar nginx:latest
+```
+
+### Step 3 — Transfer the TAR to the VM
+
+```bash
+scp nginx-latest.tar root@192.168.88.10:/home/sumit/
+```
+
+---
+
+### Step 4 — Load the Image on the VM
+
+On the **VM**:
+
+```bash
+docker load -i /home/sumit/nginx-latest.tar
+```
+
+Verify the image is loaded:
+
+```bash
+docker images
+```
+
+---
+
+### Step 5 — Login to Harbor
+
+```bash
+docker login 192.168.88.10
+```
+
+Enter credentials when prompted:
+
+| Field    | Value         |
+|----------|---------------|
+| Username | `admin`       |
+| Password | `Harbor12345` |
+
+---
+
+### Step 6 — Tag the Image for Harbor
+
+Use the format: `<harbor-ip>/<project>/<image>:<tag>`
+
+```bash
+docker tag nginx:latest 192.168.88.10/myproject/nginx:latest
+```
+
+### Step 7 — Push the Image to Harbor
+
+```bash
+docker push 192.168.88.10/myproject/nginx:latest
+```
+
+---
+
+### Step 8 — Verify in Harbor UI
+
+Open your browser and navigate to:
+
+```
+https://192.168.88.10
+```
+
+Go to: **Projects → myproject → Repositories**
+
+You should see `nginx` listed with the `latest` tag.
+
+---
 
 ## Troubleshooting
 
